@@ -90,6 +90,8 @@ def main():
                     help="only flights first seen at/after this UTC hour (0-24)")
     ap.add_argument("--to-hour", type=float, default=24.0,
                     help="only flights first seen before this UTC hour (0-24)")
+    ap.add_argument("--allow-unknown-arrival", action="store_true",
+                    help="also accept flights whose arrival airport OpenSky could not determine")
     ap.add_argument("--days", type=int, default=28)
     a = ap.parse_args()
     if not a.callsign and not a.prefix:
@@ -118,15 +120,18 @@ def main():
         end = begin + 86399  # stay inside one calendar day (cheapest credit bucket)
         print(f"{day:%Y-%m-%d}: looking for {label} {dep}->{arr}")
         flights = get("/flights/departure", {"airport": dep, "begin": begin, "end": end})
+        print(f"  {len(flights or [])} departures from {dep} that day")
         for f in flights or []:
             call = (f.get("callsign") or "").strip().upper()
             if cs and call != cs:
                 continue
             if prefix and not call.startswith(prefix):
                 continue
-            if f.get("estArrivalAirport") != arr:
-                continue
             hour = (f["firstSeen"] - begin) / 3600
+            est_arr = f.get("estArrivalAirport")
+            print(f"  candidate {call or '?'} -> {est_arr} first seen {hour:.1f}h UTC")
+            if est_arr != arr and not (a.allow_unknown_arrival and est_arr is None):
+                continue
             if not (a.from_hour <= hour < a.to_hour):
                 continue
             key = (f"{day:%Y-%m-%d}", f["icao24"])
