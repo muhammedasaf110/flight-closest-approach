@@ -83,12 +83,23 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dep", required=True)
     ap.add_argument("--arr", required=True)
-    ap.add_argument("--callsign", required=True)
+    ap.add_argument("--callsign", help="exact callsign, e.g. DLH400")
+    ap.add_argument("--prefix", help="callsign prefix, e.g. TKJ (for airlines whose "
+                                     "callsigns change daily, like TKJ9ZE)")
+    ap.add_argument("--from-hour", type=float, default=0.0,
+                    help="only flights first seen at/after this UTC hour (0-24)")
+    ap.add_argument("--to-hour", type=float, default=24.0,
+                    help="only flights first seen before this UTC hour (0-24)")
     ap.add_argument("--days", type=int, default=28)
     a = ap.parse_args()
+    if not a.callsign and not a.prefix:
+        sys.exit("Give --callsign or --prefix.")
 
-    dep, arr, cs = a.dep.upper(), a.arr.upper(), a.callsign.upper()
-    out = f"tracks/{dep}-{arr}-{cs}.json"
+    dep, arr = a.dep.upper(), a.arr.upper()
+    cs = (a.callsign or "").upper()
+    prefix = (a.prefix or "").upper()
+    label = cs or prefix
+    out = f"tracks/{dep}-{arr}-{label}.json"
 
     # Keep what we already have, so repeated runs accumulate history.
     existing = []
@@ -105,12 +116,18 @@ def main():
         day = today - timedelta(days=back)
         begin = int(day.timestamp())
         end = begin + 86399  # stay inside one calendar day (cheapest credit bucket)
-        print(f"{day:%Y-%m-%d}: looking for {cs} {dep}->{arr}")
+        print(f"{day:%Y-%m-%d}: looking for {label} {dep}->{arr}")
         flights = get("/flights/departure", {"airport": dep, "begin": begin, "end": end})
         for f in flights or []:
-            if (f.get("callsign") or "").strip().upper() != cs:
+            call = (f.get("callsign") or "").strip().upper()
+            if cs and call != cs:
+                continue
+            if prefix and not call.startswith(prefix):
                 continue
             if f.get("estArrivalAirport") != arr:
+                continue
+            hour = (f["firstSeen"] - begin) / 3600
+            if not (a.from_hour <= hour < a.to_hour):
                 continue
             key = (f"{day:%Y-%m-%d}", f["icao24"])
             if key in seen:
