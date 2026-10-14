@@ -36,7 +36,11 @@ jobs:
           DAYS: ${{ inputs.days || '3' }}
         run: |
           # One line per route you want to track. Edit these, or add more lines.
-          python fetch_tracks.py --dep EDDM --arr KJFK --callsign DLH400 --days "$DAYS"
+          # AJet VF42, Munich -> Istanbul Sabiha Gokcen. AJet callsigns look like
+          # TKJ9ZE and can change, so match the TKJ prefix plus a UTC time window
+          # (flight leaves about 10:55-11:55 UTC depending on summer/winter time).
+          python fetch_tracks.py --dep EDDM --arr LTFJ --prefix TKJ \
+            --from-hour 9.5 --to-hour 13 --days "$DAYS"
 
       - name: Commit new tracks
         run: |
