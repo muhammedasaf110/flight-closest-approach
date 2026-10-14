@@ -1,0 +1,51 @@
+name: Fetch OpenSky tracks
+
+on:
+  schedule:
+    - cron: "30 5 * * *"      # every day at 05:30 UTC (flights are processed overnight)
+  workflow_dispatch:           # lets you start it by hand from the Actions tab
+    inputs:
+      days:
+        description: "How many past days to scan (use 28 for the first backfill)"
+        default: "3"
+
+permissions:
+  contents: write              # needed so the job can commit the new JSON files
+
+concurrency:
+  group: fetch-tracks
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Download tracks
+        env:
+          OPENSKY_CLIENT_ID: ${{ secrets.OPENSKY_CLIENT_ID }}
+          OPENSKY_CLIENT_SECRET: ${{ secrets.OPENSKY_CLIENT_SECRET }}
+          DAYS: ${{ inputs.days || '3' }}
+        run: |
+          # One line per route you want to track. Edit these, or add more lines.
+          python fetch_tracks.py --dep EDDM --arr KJFK --callsign DLH400 --days "$DAYS"
+
+      - name: Commit new tracks
+        run: |
+          git config user.name "track-bot"
+          git config user.email "track-bot@users.noreply.github.com"
+          git add tracks
+          if git diff --cached --quiet; then
+            echo "No new tracks."
+          else
+            git commit -m "Update flight tracks"
+            git push
+          fi
