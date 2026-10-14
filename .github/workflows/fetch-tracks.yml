@@ -38,9 +38,10 @@ jobs:
           # One line per route you want to track. Edit these, or add more lines.
           # AJet VF42, Munich -> Istanbul Sabiha Gokcen. AJet callsigns look like
           # TKJ9ZE and can change, so match the TKJ prefix plus a UTC time window
-          # (flight leaves about 10:55-11:55 UTC depending on summer/winter time).
+          # (flight leaves about 10:55-11:55 UTC depending on summer/winter time;
+          # the window runs to 15:00 UTC so delayed departures are kept).
           python fetch_tracks.py --dep EDDM --arr LTFJ --prefix TKJ \
-            --from-hour 9.5 --to-hour 13 --days "$DAYS"
+            --from-hour 9.5 --to-hour 15 --allow-unknown-arrival --days "$DAYS"
 
       - name: Commit new tracks
         run: |
