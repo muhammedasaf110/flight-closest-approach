@@ -64,6 +64,7 @@ def get(path, params):
         r = requests.get(f"{API}{path}", params=params,
                          headers=auth.headers(), timeout=60)
         if r.status_code == 404:
+            print(f"  {path}: HTTP 404 (nothing found)")
             return None
         if r.status_code == 401:
             auth.token = None
@@ -139,7 +140,7 @@ def main():
                 print("  already saved, skipping")
                 continue
             mid = (f["firstSeen"] + f["lastSeen"]) // 2
-            tr = get("/tracks", {"icao24": f["icao24"], "time": mid})
+            tr = get("/tracks/all", {"icao24": f["icao24"], "time": mid})
             if not tr or not tr.get("path"):
                 print("  no track available")
                 continue
